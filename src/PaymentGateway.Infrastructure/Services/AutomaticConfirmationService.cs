@@ -9,6 +9,7 @@ public sealed class AutomaticConfirmationService : BackgroundService
 
     public AutomaticConfirmationService(ILogger<AutomaticConfirmationService> logger)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         _logger = logger;
     }
 

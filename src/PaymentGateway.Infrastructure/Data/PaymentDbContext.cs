@@ -7,7 +7,10 @@ namespace PaymentGateway.Infrastructure.Data;
 
 public class PaymentDbContext : DbContext, IApplicationDbContext
 {
-    public PaymentDbContext(DbContextOptions<PaymentDbContext> options) : base(options) { }
+    public PaymentDbContext(DbContextOptions<PaymentDbContext> options) : base(options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+    }
 
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<Transaction> Transactions => Set<Transaction>();

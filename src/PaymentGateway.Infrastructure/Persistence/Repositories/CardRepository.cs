@@ -11,6 +11,7 @@ public sealed class CardRepository : ICardRepository
 
     public CardRepository(IApplicationDbContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
         _context = context;
     }
 
