@@ -110,7 +110,7 @@ var rateLimitRules = new List<RateLimitRule>
 {
     new()
     {
-        Endpoint = "/api/*",
+        Endpoint = "*:/api/*",
         Period = "10s",
         Limit = 5
     }
