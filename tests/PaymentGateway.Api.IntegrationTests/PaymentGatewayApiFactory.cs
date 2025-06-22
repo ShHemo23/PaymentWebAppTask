@@ -63,8 +63,7 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
         await dbContext.Database.EnsureCreatedAsync();
 
-        var seeded = dbContext.Cards.SingleOrDefault(c => c.CardNumber == "4242-4242-4242-4242");
-        if (seeded is null)
+        if (!dbContext.Cards.Any(c => c.CardNumber == "4242-4242-4242-4242"))
         {
             dbContext.Cards.Add(new PaymentGateway.Domain.Entities.Card(
                 "John Smith",
@@ -73,13 +72,8 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 "2025",
                 "123",
                 1000m));
+            await dbContext.SaveChangesAsync();
         }
-        else
-        {
-            // ensure details are correct
-            seeded.Credit(0); // no-op ensure tracked
-        }
-        await dbContext.SaveChangesAsync();
     }
 
     Task IAsyncLifetime.InitializeAsync() => SeedAsync();
