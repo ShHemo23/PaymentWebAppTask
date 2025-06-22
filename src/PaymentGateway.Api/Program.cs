@@ -10,6 +10,7 @@ using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Azure.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -174,6 +175,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Apply pending migrations automatically when the application starts.
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<PaymentGateway.Infrastructure.Data.PaymentDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 // Map Health Check endpoints
 app.MapHealthChecks("/live", new HealthCheckOptions 

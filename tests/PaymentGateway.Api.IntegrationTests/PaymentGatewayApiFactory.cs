@@ -19,6 +19,8 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
     private readonly MsSqlContainer _dbContainer = new MsSqlBuilder()
         .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
         .WithPassword("localdev!123")
+        .WithAutoRemove(true)
+        .WithCleanUp(true)
         .Build();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -51,12 +53,24 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // Apply migrations to the test database
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
-        await dbContext.Database.MigrateAsync();
+        await dbContext.Database.EnsureCreatedAsync();
     }
 
-    public new async Task DisposeAsync()
+    // 1) Override the factory's ValueTask DisposeAsync
+    public override async ValueTask DisposeAsync()
     {
-        await _dbContainer.StopAsync();
+        // First let Testcontainers tear down the container
+        await _dbContainer.DisposeAsync();
+
+        // Then let the base class clean up
+        await base.DisposeAsync();
+    }
+
+    // 2) Explicitly implement IAsyncLifetime.DisposeAsync (returns Task)
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        // Only dispose the container here
+        await _dbContainer.DisposeAsync();
     }
 }
 

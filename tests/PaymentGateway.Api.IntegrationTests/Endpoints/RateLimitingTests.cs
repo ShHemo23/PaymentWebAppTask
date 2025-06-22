@@ -1,16 +1,16 @@
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
-public class RateLimitingTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection("IntegrationTests")]
+public class RateLimitingTests
 {
     private readonly HttpClient _client;
 
-    public RateLimitingTests(WebApplicationFactory<Program> factory)
+    public RateLimitingTests(PaymentGatewayApiFactory factory)
     {
         _client = factory.CreateClient();
     }

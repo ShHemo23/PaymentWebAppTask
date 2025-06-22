@@ -26,6 +26,14 @@ public static class DependencyInjection
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "DefaultConnection is not configured. " +
+                "Ensure the environment variable 'ConnectionStrings__DefaultConnection' is set, " +
+                "for example when running via docker-compose.");
+        }
+
         services.AddDbContext<PaymentDbContext>(options =>
             options.UseSqlServer(connectionString));
 

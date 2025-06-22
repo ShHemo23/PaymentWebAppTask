@@ -6,7 +6,8 @@ using PaymentGateway.Application.Features.Cards.Commands;
 
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
-public class CardEndpointsTests : IClassFixture<PaymentGatewayApiFactory>
+[Collection("IntegrationTests")]
+public class CardEndpointsTests
 {
     private readonly HttpClient _client;
 

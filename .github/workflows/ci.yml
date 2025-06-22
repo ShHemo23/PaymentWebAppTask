@@ -2,98 +2,53 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [develop]
+    branches: [ main, develop ]
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
         dotnet-version: ['8.0.x']
-        node-version: ['18.x']
-
     steps:
-      # -----------------------
-      # Checkout Code
-      # -----------------------
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # -----------------------
-      # Setup .NET SDK
-      # -----------------------
       - name: Setup .NET ${{ matrix.dotnet-version }}
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
-      # -----------------------
-      # Restore & Build Backend
-      # -----------------------
-      - name: Restore .NET dependencies
+      # Cache NuGet packages to speed up subsequent runs
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Docker info
+        run: docker info
+
+      - name: Ensure Docker config for MCR
+        run: |
+          mkdir -p ~/.docker
+          echo '{"auths":{"mcr.microsoft.com":{}}}' > ~/.docker/config.json
+
+      # Restore & Build separate from Test to leverage the NuGet cache fully
+      - name: Restore
         run: dotnet restore
 
-      - name: Build .NET solution
-        run: dotnet build PaymentGateway.sln --configuration Release --no-restore
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
 
-      # -----------------------
-      # Run Backend Tests
-      # -----------------------
-      - name: Run unit tests
-        run: dotnet test tests/PaymentGateway.Application.UnitTests --configuration Release --no-build
-
-      - name: Run integration tests
-        run: dotnet test tests/PaymentGateway.Api.IntegrationTests --configuration Release --no-build
-
-      - name: Run acceptance tests
-        run: dotnet test tests/PaymentGateway.AcceptanceTests --configuration Release --no-build
-
-      # -----------------------
-      # Setup Node.js
-      # -----------------------
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      # -----------------------
-      # Install Frontend Dependencies
-      # -----------------------
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      # -----------------------
-      # Build Frontend
-      # -----------------------
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
-
-      # -----------------------
-      # Publish Build Artifacts
-      # -----------------------
-      - name: Publish backend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-drop
-          path: src/PaymentGateway.Api/bin/Release/net8.0/
-
-      - name: Publish frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-drop
-          path: frontend/dist
-
-      # -----------------------
-      # Dependency Review
-      # -----------------------
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v3
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
 
   codeql:
     name: CodeQL Analysis

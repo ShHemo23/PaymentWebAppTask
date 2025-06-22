@@ -1,4 +1,5 @@
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Infrastructure.deps.json
+C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Infrastructure.runtimeconfig.json
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Infrastructure.dll
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Infrastructure.pdb
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Application.dll
@@ -15,6 +16,5 @@ C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\PaymentGateway.Infrastructure.dll
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\refint\PaymentGateway.Infrastructure.dll
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\PaymentGateway.Infrastructure.pdb
-C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\ref\PaymentGateway.Infrastructure.dll
-C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\bin\Debug\net8.0\PaymentGateway.Infrastructure.runtimeconfig.json
 C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\PaymentGateway.Infrastructure.genruntimeconfig.cache
+C:\Projects\PaymentWebAppTask\src\PaymentGateway.Infrastructure\obj\Debug\net8.0\ref\PaymentGateway.Infrastructure.dll
