@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Infrastructure.Data;
 using Testcontainers.MsSql;
+using Microsoft.Extensions.Configuration.Memory;
 
 namespace PaymentGateway.Api.IntegrationTests;
 
@@ -26,22 +27,39 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Inject the test container's connection string into IConfiguration
+        builder.ConfigureAppConfiguration((context, configBuilder) =>
+        {
+            var connectionString = _dbContainer.GetConnectionString();
+
+            configBuilder.Sources.Insert(0,
+                new MemoryConfigurationSource
+                {
+                    InitialData = new Dictionary<string, string?>
+                    {
+                        ["ConnectionStrings:DefaultConnection"] = connectionString
+                    }
+                });
+
+        });
+
         builder.ConfigureTestServices(services =>
         {
-            // 1. Remove the original DbContext registration
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<PaymentDbContext>));
+            // Remove the original DbContext registration
+            var descriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(DbContextOptions<PaymentDbContext>));
             if (descriptor != null)
             {
                 services.Remove(descriptor);
             }
 
-            // 2. Add DbContext using the test container's connection string
+            // Add DbContext using the test container's connection string
             services.AddDbContext<PaymentDbContext>(options =>
             {
                 options.UseSqlServer(_dbContainer.GetConnectionString());
             });
 
-            // 3. Add a mock authentication handler
+            // Add a mock authentication handler
             services.AddAuthentication("Test")
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", options => { });
         });
