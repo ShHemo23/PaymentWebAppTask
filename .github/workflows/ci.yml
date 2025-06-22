@@ -69,7 +69,7 @@ jobs:
       # Initialize CodeQL
       # -----------------------
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: csharp,javascript
 
@@ -77,10 +77,10 @@ jobs:
       # Autobuild for Analysis
       # -----------------------
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       # -----------------------
       # Perform CodeQL Analysis
       # -----------------------
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2 
+        uses: github/codeql-action/analyze@v3 
