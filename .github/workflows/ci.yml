@@ -78,13 +78,13 @@ jobs:
       # Publish Build Artifacts
       # -----------------------
       - name: Publish backend artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-drop
           path: src/PaymentGateway.Api/bin/Release/net8.0/
 
       - name: Publish frontend artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-drop
           path: frontend/dist
@@ -93,7 +93,7 @@ jobs:
       # Dependency Review
       # -----------------------
       - name: Dependency Review
-        uses: github/dependency-review-action@v2
+        uses: github/dependency-review-action@v3
 
   codeql:
     name: CodeQL Analysis
