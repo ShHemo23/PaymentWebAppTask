@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Infrastructure.Data;
 using Testcontainers.MsSql;
+using Microsoft.Data.SqlClient;
 
 namespace PaymentGateway.Api.IntegrationTests;
 
@@ -25,15 +26,24 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
             .UntilMessageIsLogged("SQL Server is now ready for client connections."))
         .Build();
 
+    private readonly string _testDbConnectionString;
+
     public PaymentGatewayApiFactory()
     {
         // 1) Start the container synchronously
         _dbContainer.StartAsync().GetAwaiter().GetResult();
 
-        // 2) Inject the connection string as an environment variable
+        // 2) Build a connection string that targets a dedicated test database instead of master
+        var connectionBuilder = new SqlConnectionStringBuilder(_dbContainer.GetConnectionString())
+        {
+            InitialCatalog = "PaymentGatewayTestDb" // this sets 'Database=' in the connection string
+        };
+        _testDbConnectionString = connectionBuilder.ToString();
+
+        // 3) Inject the connection string as an environment variable so Program.cs picks it up
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__DefaultConnection",
-            _dbContainer.GetConnectionString());
+            _testDbConnectionString);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -46,9 +56,9 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
             if (descriptor != null)
                 services.Remove(descriptor);
 
-            // Re-register against our live container
+            // Re-register against our dedicated test database inside the container
             services.AddDbContext<PaymentDbContext>(opts =>
-                opts.UseSqlServer(_dbContainer.GetConnectionString()));
+                opts.UseSqlServer(_testDbConnectionString));
 
             // Swap in test authentication
             services.AddAuthentication("Test")

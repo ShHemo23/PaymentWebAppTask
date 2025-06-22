@@ -23,7 +23,7 @@ public class ValidateCardCommandHandler : IRequestHandler<ValidateCardCommand, V
     {
         try
         {
-            var existingCard = await _cardRepository.GetByCardNumberAsync(request.CardNumber, cancellationToken);
+            var existingCard = await _cardRepository.GetByCardNumberAsync(request.CardNumber.Trim(), cancellationToken);
             
             if (existingCard == null)
             {
@@ -31,26 +31,37 @@ public class ValidateCardCommandHandler : IRequestHandler<ValidateCardCommand, V
                 return new ValidateCardResponse(false, "Card not found");
             }
 
-            if (existingCard.CardHolderName != request.CardHolderName)
-            {
-                _logger.LogWarning("Card validation failed: Invalid cardholder name. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(false, "Invalid cardholder name");
-            }
+            bool isExpiryValid = existingCard.ExpiryMonth == request.ExpiryMonth.Trim() && existingCard.ExpiryYear == request.ExpiryYear.Trim();
+            bool isCvvValid = existingCard.Cvv == request.Cvv.Trim();
+            bool isNameValid = existingCard.CardHolderName == request.CardHolderName.Trim();
 
-            if (existingCard.ExpiryMonth != request.ExpiryMonth || existingCard.ExpiryYear != request.ExpiryYear)
+            if (!isExpiryValid)
             {
                 _logger.LogWarning("Card validation failed: Invalid expiry date. CardNumber: {CardNumber}", request.CardNumber);
                 return new ValidateCardResponse(false, "Invalid expiry date");
             }
 
-            if (existingCard.Cvv != request.Cvv)
+            if (!isCvvValid)
             {
                 _logger.LogWarning("Card validation failed: Invalid CVV. CardNumber: {CardNumber}", request.CardNumber);
                 return new ValidateCardResponse(false, "Invalid CVV");
             }
+            
+            if (!isNameValid)
+            {
+                _logger.LogWarning("Card validation failed: Invalid cardholder name. CardNumber: {CardNumber}", request.CardNumber);
+                return new ValidateCardResponse(false, "Invalid cardholder name");
+            }
+            
+            bool isValid = isExpiryValid && isCvvValid && isNameValid;
 
-            _logger.LogInformation("Card validation successful. CardNumber: {CardNumber}", request.CardNumber);
-            return new ValidateCardResponse(true);
+            if (isValid)
+            {
+                _logger.LogInformation("Card validation successful. CardNumber: {CardNumber}", request.CardNumber);
+                return new ValidateCardResponse(true);
+            }
+
+            return new ValidateCardResponse(false, "Unknown validation error");
         }
         catch (Exception ex)
         {
