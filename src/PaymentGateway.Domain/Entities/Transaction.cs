@@ -7,13 +7,14 @@ public sealed class Transaction
     public Guid Id { get; private set; }
     public Guid CardId { get; private set; }
     public decimal Amount { get; private set; }
-    public string Currency { get; private set; }
+    public required string Currency { get; init; }
     public TransactionStatus Status { get; private set; }
-    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset CreatedDate { get; private set; }
+    public DateTimeOffset? LastModifiedDate { get; private set; }
 
     private Transaction()
     {
-        // Required for EF Core
+        // Required by EF Core
     }
     
     public Transaction(Guid cardId, decimal amount, string currency)
@@ -31,17 +32,19 @@ public sealed class Transaction
         Amount = amount;
         Currency = currency;
         Status = TransactionStatus.Pending;
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedDate = DateTimeOffset.UtcNow;
     }
 
     public void MarkAsSuccessful()
     {
         Status = TransactionStatus.Successful;
+        LastModifiedDate = DateTimeOffset.UtcNow;
     }
 
     public void MarkAsFailed()
     {
         Status = TransactionStatus.Failed;
+        LastModifiedDate = DateTimeOffset.UtcNow;
     }
 
     // Navigation property

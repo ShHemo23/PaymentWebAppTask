@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace PaymentGateway.Application.Common.Behaviors;
 
@@ -7,11 +8,16 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
     where TRequest : IRequest<TResponse>
 {
     private readonly IEnumerable<IValidator<TRequest>> _validators;
+    private readonly ILogger<ValidationBehavior<TRequest, TResponse>> _logger;
 
-    public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
+    public ValidationBehavior(
+        IEnumerable<IValidator<TRequest>> validators,
+        ILogger<ValidationBehavior<TRequest, TResponse>> logger)
     {
         ArgumentNullException.ThrowIfNull(validators);
+        ArgumentNullException.ThrowIfNull(logger);
         _validators = validators;
+        _logger = logger;
     }
 
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
@@ -30,7 +36,14 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
                 .ToList();
 
             if (failures.Count != 0)
+            {
+                _logger.LogWarning(
+                    "Validation failed for {RequestType}. Errors: {ValidationErrors}",
+                    typeof(TRequest).Name,
+                    string.Join(", ", failures.Select(f => $"{f.PropertyName}: {f.ErrorMessage}")));
+                
                 throw new ValidationException(failures);
+            }
         }
         return await next();
     }

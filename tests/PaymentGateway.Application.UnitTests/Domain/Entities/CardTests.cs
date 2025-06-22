@@ -11,7 +11,13 @@ public class CardTests
         // Arrange
         var initialBalance = 100m;
         var debitAmount = 20m;
-        var card = new Card("Test Holder", "1234567812345678", "12", "2030", "123", initialBalance);
+        var card = new Card(
+            cardHolderName: "Test Holder",
+            cardNumber: "1234567812345678",
+            expiryMonth: "12",
+            expiryYear: "2030",
+            cvv: "123",
+            initialBalance: initialBalance);
 
         // Act
         card.Debit(debitAmount);
@@ -26,7 +32,13 @@ public class CardTests
         // Arrange
         var initialBalance = 10m;
         var debitAmount = 20m;
-        var card = new Card("Test Holder", "1234567812345678", "12", "2030", "123", initialBalance);
+        var card = new Card(
+            cardHolderName: "Test Holder",
+            cardNumber: "1234567812345678",
+            expiryMonth: "12",
+            expiryYear: "2030",
+            cvv: "123",
+            initialBalance: initialBalance);
 
         // Act
         Action act = () => card.Debit(debitAmount);
@@ -41,7 +53,13 @@ public class CardTests
         // Arrange
         var initialBalance = 100m;
         var debitAmount = -20m;
-        var card = new Card("Test Holder", "1234567812345678", "12", "2030", "123", initialBalance);
+        var card = new Card(
+            cardHolderName: "Test Holder",
+            cardNumber: "1234567812345678",
+            expiryMonth: "12",
+            expiryYear: "2030",
+            cvv: "123",
+            initialBalance: initialBalance);
 
         // Act
         Action act = () => card.Debit(debitAmount);

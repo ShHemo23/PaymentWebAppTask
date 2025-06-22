@@ -2,26 +2,18 @@ namespace PaymentGateway.Domain.Entities;
 
 public sealed class Card
 {
-    public Guid Id { get; private set; }
-    public string CardHolderName { get; private set; } = null!;
-    public string CardNumber { get; private set; } = null!;
-    public string ExpiryMonth { get; private set; } = null!;
-    public string ExpiryYear { get; private set; } = null!;
-    public string Cvv { get; private set; } = null!;
-    public decimal Balance { get; private set; }
-
     private Card()
     {
-        // Required for EF Core
+        // Required by EF Core
+        Id = Guid.NewGuid();
+        CardHolderName = string.Empty;
+        CardNumber = string.Empty;
+        ExpiryMonth = string.Empty;
+        ExpiryYear = string.Empty;
+        Cvv = string.Empty;
     }
 
-    public Card(
-        string cardHolderName,
-        string cardNumber,
-        string expiryMonth,
-        string expiryYear,
-        string cvv,
-        decimal initialBalance)
+    public Card(string cardHolderName, string cardNumber, string expiryMonth, string expiryYear, string cvv, decimal initialBalance = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardHolderName);
         ArgumentException.ThrowIfNullOrWhiteSpace(cardNumber);
@@ -31,13 +23,21 @@ public sealed class Card
         ArgumentOutOfRangeException.ThrowIfNegative(initialBalance);
 
         Id = Guid.NewGuid();
-        Balance = initialBalance;
         CardHolderName = cardHolderName;
         CardNumber = cardNumber;
         ExpiryMonth = expiryMonth;
         ExpiryYear = expiryYear;
         Cvv = cvv;
+        Balance = initialBalance;
     }
+
+    public Guid Id { get; private set; }
+    public string CardHolderName { get; private set; }
+    public string CardNumber { get; private set; }
+    public string ExpiryMonth { get; private set; }
+    public string ExpiryYear { get; private set; }
+    public string Cvv { get; private set; }
+    public decimal Balance { get; private set; }
 
     public void Debit(decimal amount)
     {

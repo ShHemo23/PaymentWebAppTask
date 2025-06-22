@@ -33,16 +33,15 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
         builder.Property(c => c.Balance)
             .HasColumnType("decimal(18,2)");
 
-        // Seed a test card
-        builder.HasData(new Card
-        {
-            Id = Guid.Parse("f9a4a7a0-02a8-4e3a-8671-5f2a1d7f6b8a"),
-            CardHolderName = "John Smith",
-            CardNumber = "4242-4242-4242-4242",
-            ExpiryMonth = "12",
-            ExpiryYear = "2030",
-            Cvv = "123",
-            Balance = 1000.00m
-        });
+        // Seed a test card using constructor
+        var testCard = new Card(
+            cardHolderName: "John Smith",
+            cardNumber: "4242-4242-4242-4242",
+            expiryMonth: "12",
+            expiryYear: "2030",
+            cvv: "123",
+            initialBalance: 1000.00m);
+
+        builder.HasData(testCard);
     }
 } 
