@@ -126,10 +126,8 @@ builder.Services.Configure<IpRateLimitOptions>(options =>
     options.ClientIdHeader = "X-ClientId";
 });
 
-builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
-builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
-builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
-builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddInMemoryRateLimiting();
 
 // Authentication
 builder.Services
