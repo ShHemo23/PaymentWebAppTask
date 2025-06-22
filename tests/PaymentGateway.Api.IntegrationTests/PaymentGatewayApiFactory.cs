@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Infrastructure.Data;
 using Testcontainers.MsSql;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Memory;
 
 namespace PaymentGateway.Api.IntegrationTests;
@@ -25,55 +26,42 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("SQL Server is now ready for client connections."))
         .Build();
 
+    public PaymentGatewayApiFactory()
+    {
+        // Start the container synchronously when the factory is created.
+        // This ensures the container is running before any host configuration begins.
+        _dbContainer.StartAsync().GetAwaiter().GetResult();
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Inject the test container's connection string into IConfiguration
-        builder.ConfigureAppConfiguration((context, configBuilder) =>
+        builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
-            var connectionString = _dbContainer.GetConnectionString();
-
-            configBuilder.Sources.Insert(0,
-                new MemoryConfigurationSource
-                {
-                    InitialData = new Dictionary<string, string?>
-                    {
-                        ["ConnectionStrings:DefaultConnection"] = connectionString
-                    }
-                });
-
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = _dbContainer.GetConnectionString()
+            });
         });
 
-        builder.ConfigureTestServices(services =>
+        builder.ConfigureServices(services =>
         {
             // Remove the original DbContext registration
-            var descriptor = services.SingleOrDefault(d =>
+            var descriptor = services.SingleOrDefault(d => 
                 d.ServiceType == typeof(DbContextOptions<PaymentDbContext>));
-            if (descriptor != null)
-            {
-                services.Remove(descriptor);
-            }
+            if (descriptor != null) services.Remove(descriptor);
 
-            // Add DbContext using the test container's connection string
-            services.AddDbContext<PaymentDbContext>(options =>
-            {
-                options.UseSqlServer(_dbContainer.GetConnectionString());
-            });
+            // Re-register against our live container
+            services.AddDbContext<PaymentDbContext>(opts =>
+                opts.UseSqlServer(_dbContainer.GetConnectionString()));
 
-            // Add a mock authentication handler
+            // Swap in test auth
             services.AddAuthentication("Test")
-                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", options => { });
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
         });
     }
 
-    public async Task InitializeAsync()
-    {
-        await _dbContainer.StartAsync();
-
-        // Apply migrations to the test database
-        using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
 
     // 1) Override the factory's ValueTask DisposeAsync
     public override async ValueTask DisposeAsync()
