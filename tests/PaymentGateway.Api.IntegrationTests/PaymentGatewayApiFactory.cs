@@ -11,8 +11,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaymentGateway.Infrastructure.Data;
 using Testcontainers.MsSql;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Memory;
 
 namespace PaymentGateway.Api.IntegrationTests;
 
@@ -23,39 +21,36 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         .WithPassword("localdev!123")
         .WithAutoRemove(true)
         .WithCleanUp(true)
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("SQL Server is now ready for client connections."))
+        .WithWaitStrategy(Wait.ForUnixContainer()
+            .UntilMessageIsLogged("SQL Server is now ready for client connections."))
         .Build();
 
     public PaymentGatewayApiFactory()
     {
-        // Start the container synchronously when the factory is created.
-        // This ensures the container is running before any host configuration begins.
+        // 1) Start the container synchronously
         _dbContainer.StartAsync().GetAwaiter().GetResult();
+
+        // 2) Inject the connection string as an environment variable
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__DefaultConnection",
+            _dbContainer.GetConnectionString());
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Inject the test container's connection string into IConfiguration
-        builder.ConfigureAppConfiguration((_, configBuilder) =>
-        {
-            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = _dbContainer.GetConnectionString()
-            });
-        });
-
-        builder.ConfigureServices(services =>
+        builder.ConfigureTestServices(services =>
         {
             // Remove the original DbContext registration
-            var descriptor = services.SingleOrDefault(d => 
+            var descriptor = services.SingleOrDefault(d =>
                 d.ServiceType == typeof(DbContextOptions<PaymentDbContext>));
-            if (descriptor != null) services.Remove(descriptor);
+            if (descriptor != null)
+                services.Remove(descriptor);
 
             // Re-register against our live container
             services.AddDbContext<PaymentDbContext>(opts =>
                 opts.UseSqlServer(_dbContainer.GetConnectionString()));
 
-            // Swap in test auth
+            // Swap in test authentication
             services.AddAuthentication("Test")
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
         });
@@ -63,28 +58,25 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     public Task InitializeAsync() => Task.CompletedTask;
 
-    // 1) Override the factory's ValueTask DisposeAsync
     public override async ValueTask DisposeAsync()
     {
-        // First let Testcontainers tear down the container
         await _dbContainer.DisposeAsync();
-
-        // Then let the base class clean up
         await base.DisposeAsync();
     }
 
-    // 2) Explicitly implement IAsyncLifetime.DisposeAsync (returns Task)
     async Task IAsyncLifetime.DisposeAsync()
     {
-        // Only dispose the container here
         await _dbContainer.DisposeAsync();
     }
 }
 
-// Mock Authentication Handler to bypass real JWT validation in tests
+// Mock Authentication Handler to bypass real JWT in tests
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
-    public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+    public TestAuthHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
         : base(options, logger, encoder)
     {
     }
@@ -95,9 +87,6 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         var identity = new ClaimsIdentity(claims, "Test");
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, "Test");
-
-        var result = AuthenticateResult.Success(ticket);
-
-        return Task.FromResult(result);
+        return Task.FromResult(AuthenticateResult.Success(ticket));
     }
-} 
+}
