@@ -61,6 +61,8 @@ public class ValidateCardCommandHandler : IRequestHandler<ValidateCardCommand, V
                 return new ValidateCardResponse(true);
             }
 
+            // This part of the code is now logically unreachable but kept for safety.
+            // The individual checks above will return early.
             return new ValidateCardResponse(false, "Unknown validation error");
         }
         catch (Exception ex)
