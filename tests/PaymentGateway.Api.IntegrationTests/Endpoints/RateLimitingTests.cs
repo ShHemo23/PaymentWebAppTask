@@ -19,18 +19,23 @@ public class RateLimitingTests
     public async Task AnyEndpoint_WhenCalledRepeatedly_ReturnsTooManyRequests()
     {
         // Arrange
-        var requestUrl = "/live"; // Use a public endpoint that doesn't require auth
+        var requestUrl = "/live"; // Public endpoint without auth
+        var clientId = Guid.NewGuid().ToString();
 
         // Act
         // Send 5 requests, which should be allowed
         for (int i = 0; i < 5; i++)
         {
-            var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Get, requestUrl));
+            var msg = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            msg.Headers.Add("X-ClientId", clientId);
+            var response = await _client.SendAsync(msg);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         // Send the 6th request, which should be rate limited
-        var finalResponse = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Get, requestUrl));
+        var finalMsg = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+        finalMsg.Headers.Add("X-ClientId", clientId);
+        var finalResponse = await _client.SendAsync(finalMsg);
 
         // Assert
         Assert.Equal(HttpStatusCode.TooManyRequests, finalResponse.StatusCode);
