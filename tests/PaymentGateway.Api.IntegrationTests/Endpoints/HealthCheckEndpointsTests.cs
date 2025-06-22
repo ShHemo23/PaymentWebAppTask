@@ -1,16 +1,17 @@
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.Testing;
+using PaymentGateway.Api.IntegrationTests;
 using Xunit;
 
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
-public class HealthCheckEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection("IntegrationTests")]
+public class HealthCheckEndpointsTests
 {
     private readonly HttpClient _client;
 
-    public HealthCheckEndpointsTests(WebApplicationFactory<Program> factory)
+    public HealthCheckEndpointsTests(PaymentGatewayApiFactory factory)
     {
         _client = factory.CreateClient();
     }
