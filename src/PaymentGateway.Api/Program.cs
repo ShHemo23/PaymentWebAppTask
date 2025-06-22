@@ -5,6 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using PaymentGateway.Api.Middleware;
 using Serilog;
+using Microsoft.OpenApi.Models;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,11 +21,51 @@ builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // 3. DI Validation
-builder.Host.UseDefaultServiceProvider(options => options.ValidateScopes = builder.Environment.IsDevelopment());
+builder.Host.UseDefaultServiceProvider(options =>
+{
+    options.ValidateScopes = builder.Environment.IsDevelopment();
+    options.ValidateOnBuild = true;
+});
 
 // 4. API Controllers
 builder.Services.AddControllers(options => options.SuppressAsyncSuffixInActionNames = false);
 builder.Services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
+
+// Add Swagger/OpenAPI Services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new() { Title = "Payment Gateway API", Version = "v1" });
+
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath);
+
+    options.AddSecurityDefinition("Bearer", new()
+    {
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+
+    options.AddSecurityRequirement(new()
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new()
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // 5. Exception Handling
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -28,7 +73,11 @@ builder.Services.AddProblemDetails();
 
 // 6. Health Checks
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<PaymentGateway.Infrastructure.Data.PaymentDbContext>("database");
+    .AddSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("DefaultConnection")!,
+        name: "SQL Server",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: new[] { "database", "ready" });
 
 // 7. CORS
 builder.Services.AddCors(options =>
@@ -46,15 +95,36 @@ if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddUserSecrets<Program>(optional: true);
 }
+else
+{
+    var keyVaultUri = new Uri(builder.Configuration["KeyVault:Uri"] 
+                              ?? throw new InvalidOperationException("KeyVault URI not found."));
+    builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
+}
 
 // Rate Limiting
 builder.Services.AddMemoryCache();
-builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.Configure<IpRateLimitOptions>(options =>
+{
+    options.EnableEndpointRateLimiting = true;
+    options.StackBlockedRequests = false;
+    options.HttpStatusCode = 429;
+    options.RealIpHeader = "X-Real-IP";
+    options.ClientIdHeader = "X-ClientId";
+    options.GeneralRules = new List<RateLimitRule>
+    {
+        new RateLimitRule
+        {
+            Endpoint = "*",
+            Period = "10s",
+            Limit = 5
+        }
+    };
+});
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
 builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
-builder.Services.AddInMemoryRateLimiting();
 
 // Authentication
 builder.Services
@@ -89,6 +159,13 @@ app.UseIpRateLimiting();
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("AllowAll");
+    // Enable Swagger and Swagger UI in development
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Payment Gateway API v1");
+        options.RoutePrefix = string.Empty; // Set UI at the app's root
+    });
 }
 
 app.UseHttpsRedirection();
@@ -98,7 +175,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHealthChecks("/_health/ready", new() { Predicate = check => check.Tags.Contains("database") });
-app.MapHealthChecks("/_health/live", new() { Predicate = _ => false });
+// Map Health Check endpoints
+app.MapHealthChecks("/live", new HealthCheckOptions 
+{ 
+    Predicate = _ => false,
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse 
+});
+
+app.MapHealthChecks("/ready", new HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.Run();
+
+// Make the auto-generated Program class public so it can be used by the test project
+public partial class Program { }

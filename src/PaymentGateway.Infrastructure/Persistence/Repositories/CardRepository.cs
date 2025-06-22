@@ -5,15 +5,9 @@ using PaymentGateway.Infrastructure.Data;
 
 namespace PaymentGateway.Infrastructure.Persistence.Repositories;
 
-public sealed class CardRepository : ICardRepository
+public sealed class CardRepository(IApplicationDbContext context) : ICardRepository
 {
-    private readonly IApplicationDbContext _context;
-
-    public CardRepository(IApplicationDbContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        _context = context;
-    }
+    private readonly IApplicationDbContext _context = context ?? throw new ArgumentNullException(nameof(context));
 
     public async Task<Card?> GetByCardNumberAsync(string cardNumber, CancellationToken cancellationToken = default)
     {

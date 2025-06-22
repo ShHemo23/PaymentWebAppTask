@@ -1,12 +1,19 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PaymentGateway.Application.Features.Auth.Commands;
 
 namespace PaymentGateway.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public sealed class AuthController(ISender sender) : ControllerBase
 {
-    public AuthController()
+    private readonly ISender _sender = sender ?? throw new ArgumentNullException(nameof(sender));
+
+    [HttpPost("token")]
+    public async Task<IActionResult> GetToken(GetTokenCommand command)
     {
+        var result = await _sender.Send(command);
+        return Ok(result);
     }
 } 
