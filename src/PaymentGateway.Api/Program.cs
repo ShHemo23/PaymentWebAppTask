@@ -128,6 +128,7 @@ builder.Services.Configure<IpRateLimitOptions>(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddInMemoryRateLimiting();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
 // Authentication
 builder.Services
