@@ -93,7 +93,7 @@ jobs:
       # Dependency Review
       # -----------------------
       - name: Dependency Review
-        uses: github/dependency-review-action@v3
+        uses: actions/dependency-review-action@v3
 
   codeql:
     name: CodeQL Analysis
