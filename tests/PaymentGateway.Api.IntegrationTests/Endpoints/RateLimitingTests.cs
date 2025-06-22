@@ -1,8 +1,7 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using FluentAssertions;
-using PaymentGateway.Application.Features.Cards.Commands;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Xunit;
 
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
@@ -16,7 +15,6 @@ public class RateLimitingTests : IAsyncLifetime
     {
         _factory = factory;
         _client = factory.CreateClient();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test");
     }
 
     public Task InitializeAsync() => _factory.ResetDatabaseAsync();
@@ -24,32 +22,28 @@ public class RateLimitingTests : IAsyncLifetime
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task ApiEndpoint_WhenCalledRepeatedly_ReturnsTooManyRequests()
+    public async Task AnyEndpoint_WhenCalledRepeatedly_ReturnsTooManyRequests()
     {
         // Arrange
-        var requestUrl = "/api/cards/validate";
-        var command = new ValidateCardCommand
-        {
-            CardHolderName = "Jane Doe",
-            CardNumber = "1111-2222-3333-4444",
-            ExpiryMonth = "06",
-            ExpiryYear = "2028",
-            Cvv = "456"
-        };
-        
-        var responses = new List<HttpResponseMessage>();
-        const int requestCount = 7;
-        const int limit = 5;
+        var requestUrl = "/live"; // Public endpoint without auth
+        var clientId = Guid.NewGuid().ToString();
 
         // Act
-        for (var i = 0; i < requestCount; i++)
+        // Send 5 requests, which should be allowed
+        for (int i = 0; i < 5; i++)
         {
-            var response = await _client.PostAsJsonAsync(requestUrl, command);
-            responses.Add(response);
+            var msg = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            msg.Headers.Add("X-ClientId", clientId);
+            var response = await _client.SendAsync(msg);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
+        // Send the 6th request, which should be rate limited
+        var finalMsg = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+        finalMsg.Headers.Add("X-ClientId", clientId);
+        var finalResponse = await _client.SendAsync(finalMsg);
+
         // Assert
-        responses.Take(limit).Should().OnlyContain(r => r.IsSuccessStatusCode);
-        responses.Should().Contain(r => r.StatusCode == HttpStatusCode.TooManyRequests);
+        Assert.Equal(HttpStatusCode.TooManyRequests, finalResponse.StatusCode);
     }
 } 
