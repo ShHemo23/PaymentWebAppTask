@@ -56,16 +56,16 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         });
     }
 
-    // Seed data after host is built
-    public async Task SeedAsync()
+    public async Task ResetDatabaseAsync()
     {
         using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PaymentGateway.Infrastructure.Data.PaymentDbContext>();
+        await dbContext.Database.EnsureDeletedAsync();
         await dbContext.Database.EnsureCreatedAsync();
 
         if (!dbContext.Cards.Any(c => c.CardNumber == "4242-4242-4242-4242"))
         {
-            dbContext.Cards.Add(new PaymentGateway.Domain.Entities.Card(
+            dbContext.Cards.Add(new(
                 "John Smith",
                 "4242-4242-4242-4242",
                 "12",
@@ -76,7 +76,7 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         }
     }
 
-    Task IAsyncLifetime.InitializeAsync() => SeedAsync();
+    Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
 
     public override async ValueTask DisposeAsync()
     {

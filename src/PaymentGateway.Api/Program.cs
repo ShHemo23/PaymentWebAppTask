@@ -105,23 +105,27 @@ else
 
 // Rate Limiting
 builder.Services.AddMemoryCache();
+
+var rateLimitRules = new List<RateLimitRule>
+{
+    new()
+    {
+        Endpoint = "/api/*",
+        Period = "10s",
+        Limit = 5
+    }
+};
+
 builder.Services.Configure<IpRateLimitOptions>(options =>
 {
+    options.GeneralRules = rateLimitRules;
     options.EnableEndpointRateLimiting = true;
     options.StackBlockedRequests = false;
     options.HttpStatusCode = 429;
     options.RealIpHeader = "X-Real-IP";
     options.ClientIdHeader = "X-ClientId";
-    options.GeneralRules = new List<RateLimitRule>
-    {
-        new RateLimitRule
-        {
-            Endpoint = "*",
-            Period = "10s",
-            Limit = 5
-        }
-    };
 });
+
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
 builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();

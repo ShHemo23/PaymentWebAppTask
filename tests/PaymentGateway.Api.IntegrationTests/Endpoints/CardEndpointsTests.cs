@@ -7,16 +7,22 @@ using PaymentGateway.Application.Features.Cards.Commands;
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
 [Collection("IntegrationTests")]
-public class CardEndpointsTests
+public class CardEndpointsTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
+    private readonly PaymentGatewayApiFactory _factory;
 
     public CardEndpointsTests(PaymentGatewayApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
         // Use the mock authentication scheme defined in the factory
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test");
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task ValidateCard_WithValidSeededCard_ReturnsSuccess()

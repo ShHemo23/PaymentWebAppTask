@@ -7,14 +7,20 @@ using Xunit;
 namespace PaymentGateway.Api.IntegrationTests.Endpoints;
 
 [Collection("IntegrationTests")]
-public class HealthCheckEndpointsTests
+public class HealthCheckEndpointsTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
+    private readonly PaymentGatewayApiFactory _factory;
 
     public HealthCheckEndpointsTests(PaymentGatewayApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task LiveEndpoint_ReturnsOk()
