@@ -21,6 +21,7 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         .WithPassword("localdev!123")
         .WithAutoRemove(true)
         .WithCleanUp(true)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("SQL Server is now ready for client connections."))
         .Build();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
