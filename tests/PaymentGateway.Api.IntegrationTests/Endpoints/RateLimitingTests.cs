@@ -17,6 +17,8 @@ public class RateLimitingTests : IAsyncLifetime
         _factory = factory;
         _client = factory.CreateClient();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test");
+        _client.DefaultRequestHeaders.Add("X-Real-IP", "1.2.3.4");
+        _client.DefaultRequestHeaders.Add("X-ClientId", "test-client");
     }
 
     public Task InitializeAsync() => _factory.ResetDatabaseAsync();

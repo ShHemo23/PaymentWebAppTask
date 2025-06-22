@@ -38,7 +38,7 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
             cardHolderName: "John Smith",
             cardNumber: "4242-4242-4242-4242",
             expiryMonth: "12",
-            expiryYear: "2030",
+            expiryYear: "2025",
             cvv: "123",
             initialBalance: 1000.00m);
 

@@ -82,8 +82,17 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 "2025",
                 "123",
                 1000m));
-            await dbContext.SaveChangesAsync();
         }
+        else
+        {
+            var existing = await dbContext.Cards.FirstAsync(c => c.CardNumber == "4242-4242-4242-4242");
+            existing.GetType().GetProperty("ExpiryMonth")!.SetValue(existing, "12");
+            existing.GetType().GetProperty("ExpiryYear")!.SetValue(existing, "2025");
+            existing.GetType().GetProperty("Cvv")!.SetValue(existing, "123");
+            existing.GetType().GetProperty("CardHolderName")!.SetValue(existing, "John Smith");
+            existing.GetType().GetProperty("Balance")!.SetValue(existing, 1000m);
+        }
+        await dbContext.SaveChangesAsync();
     }
 
     Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
