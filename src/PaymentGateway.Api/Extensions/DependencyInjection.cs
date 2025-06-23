@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using PaymentGateway.Application.Common.Behaviors;
 using PaymentGateway.Application.Interfaces;
 using PaymentGateway.Infrastructure.Data;
+using PaymentGateway.Infrastructure.Services;
+using System;
+using PaymentGateway.Infrastructure.Extensions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -35,11 +38,19 @@ public static class DependencyInjection
         }
 
         services.AddDbContext<PaymentDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseSqlServer(connectionString, sql =>
+            {
+                sql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(2), null);
+            }));
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<PaymentDbContext>());
         
         services.AddScoped<ICardRepository, PaymentGateway.Infrastructure.Persistence.Repositories.CardRepository>();
+
+        services.AddScoped<IIdempotencyService, IdempotencyService>();
+        services.AddScoped<IAuditService, AuditService>();
+
+        services.AddCrypto();
 
         services.AddSingleton<IHostedService, PaymentGateway.Infrastructure.Services.AutomaticConfirmationService>();
 

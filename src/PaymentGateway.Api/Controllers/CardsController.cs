@@ -6,7 +6,8 @@ using PaymentGateway.Application.Features.Cards.Commands;
 namespace PaymentGateway.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
 public sealed class CardsController(ISender sender) : ControllerBase
 {

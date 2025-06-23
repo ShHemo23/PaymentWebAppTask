@@ -3,10 +3,13 @@ using PaymentGateway.Domain.Entities;
 
 namespace PaymentGateway.Application.Features.Payments.Commands;
 
-public sealed record ProcessPaymentCommand(
-    string CardNumber,
-    string Cvv,
-    int ExpiryMonth,
-    int ExpiryYear,
-    decimal Amount,
-    string Currency) : IRequest<Transaction>;
+public class ProcessPaymentCommand : IRequest<PaymentResponse>
+{
+    public string CardNumber { get; set; } = null!;
+    public int ExpiryMonth { get; set; }
+    public int ExpiryYear { get; set; }
+    public string Cvv { get; set; } = null!;
+    public decimal Amount { get; set; }
+}
+
+public sealed record PaymentResponse(string TransactionId, string? RefundCode);

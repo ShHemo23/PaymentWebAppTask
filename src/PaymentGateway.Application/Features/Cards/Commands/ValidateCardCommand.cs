@@ -5,46 +5,29 @@ namespace PaymentGateway.Application.Features.Cards.Commands;
 
 public record ValidateCardCommand : IRequest<ValidateCardResponse>
 {
-    public required string CardHolderName { get; init; }
     public required string CardNumber { get; init; }
-    public required string ExpiryMonth { get; init; }
-    public required string ExpiryYear { get; init; }
+    public required int ExpiryMonth { get; init; }
+    public required int ExpiryYear { get; init; }
     public required string Cvv { get; init; }
+    public string? CardHolderName { get; init; }
 }
 
-public record ValidateCardResponse(bool IsValid, string? Error = null);
+public record ValidateCardResponse(bool IsValid, string? Message = null);
 
 public class ValidateCardCommandValidator : AbstractValidator<ValidateCardCommand>
 {
     public ValidateCardCommandValidator()
     {
-        RuleFor(x => x.CardHolderName)
-            .NotEmpty()
-            .MaximumLength(200);
-
         RuleFor(x => x.CardNumber)
             .NotEmpty()
-            .Matches(@"^\d{4}-\d{4}-\d{4}-\d{4}$")
-            .WithMessage("Card number must be in format: xxxx-xxxx-xxxx-xxxx");
+            .Matches(@"^[0-9\-\s]{13,25}$")
+            .WithMessage("Card number must contain 13-19 digits and may include spaces or dashes");
 
         RuleFor(x => x.ExpiryMonth)
-            .NotEmpty()
-            .Matches(@"^(0[1-9]|1[0-2])$")
-            .WithMessage("Expiry month must be between 01 and 12");
+            .InclusiveBetween(1, 12);
 
         RuleFor(x => x.ExpiryYear)
-            .NotEmpty()
-            .Matches(@"^\d{4}$")
-            .WithMessage("Expiry year must be a 4-digit number")
-            .Must(year =>
-            {
-                if (int.TryParse(year, out int yearInt))
-                {
-                    return yearInt >= DateTime.UtcNow.Year;
-                }
-                return false;
-            })
-            .WithMessage("Card has expired");
+            .GreaterThanOrEqualTo(DateTime.UtcNow.Year);
 
         RuleFor(x => x.Cvv)
             .NotEmpty()

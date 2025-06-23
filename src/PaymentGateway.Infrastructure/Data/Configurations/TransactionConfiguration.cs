@@ -18,13 +18,22 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .HasMaxLength(3)
             .IsRequired();
 
+        builder.Property(t => t.PublicTransactionId)
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(t => t.RefundCode)
+            .HasMaxLength(4);
+
+        builder.Property(t => t.RefundCodeExpiryUtc);
+
         builder.Property(t => t.Status)
             .HasConversion(
                 v => v.ToString(),
                 v => (TransactionStatus)Enum.Parse(typeof(TransactionStatus), v));
 
         builder.HasOne(t => t.Card)
-            .WithMany()
+            .WithMany(c => c.Transactions)
             .HasForeignKey(t => t.CardId);
     }
 } 

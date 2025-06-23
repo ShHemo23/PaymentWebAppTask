@@ -12,6 +12,9 @@ using Microsoft.Extensions.Options;
 using PaymentGateway.Infrastructure.Data;
 using Testcontainers.MsSql;
 using Microsoft.Data.SqlClient;
+using System.Security.Cryptography;
+using System.Text;
+using System.Collections.Generic;
 
 namespace PaymentGateway.Api.IntegrationTests;
 
@@ -73,26 +76,35 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         await dbContext.Database.EnsureDeletedAsync();
         await dbContext.Database.EnsureCreatedAsync();
 
-        if (!dbContext.Cards.Any(c => c.CardNumber == "4242-4242-4242-4242"))
+        var cardsToSeed = new List<(string number, string holder)>
         {
-            dbContext.Cards.Add(new(
-                "John Smith",
-                "4242-4242-4242-4242",
-                "12",
-                "2025",
-                "123",
-                1000m));
-        }
-        else
+            ("4539682995824395", "John Smith"),
+            ("4242424242424242", "Seeded Test")
+        };
+
+        foreach (var (number, holder) in cardsToSeed)
         {
-            var existing = await dbContext.Cards.FirstAsync(c => c.CardNumber == "4242-4242-4242-4242");
-            existing.GetType().GetProperty("ExpiryMonth")!.SetValue(existing, "12");
-            existing.GetType().GetProperty("ExpiryYear")!.SetValue(existing, "2025");
-            existing.GetType().GetProperty("Cvv")!.SetValue(existing, "123");
-            existing.GetType().GetProperty("CardHolderName")!.SetValue(existing, "John Smith");
-            existing.GetType().GetProperty("Balance")!.SetValue(existing, 1000m);
+            var hash = ComputeSha256Hash(number);
+            if (!dbContext.Cards.Any(c => c.CardNumber == hash))
+            {
+                dbContext.Cards.Add(new(
+                    holder,
+                    hash,
+                    "12",
+                    "2030",
+                    "123",
+                    1000m));
+            }
         }
+
         await dbContext.SaveChangesAsync();
+    }
+
+    private static string ComputeSha256Hash(string raw)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(raw));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;

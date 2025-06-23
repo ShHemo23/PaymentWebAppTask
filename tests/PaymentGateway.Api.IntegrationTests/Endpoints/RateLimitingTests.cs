@@ -29,13 +29,13 @@ public class RateLimitingTests : IAsyncLifetime
     public async Task ApiEndpoint_WhenCalledRepeatedly_ReturnsTooManyRequests()
     {
         // Arrange
-        var requestUrl = "/api/cards/validate";
+        var requestUrl = "/api/v1/cards/validate";
         var command = new ValidateCardCommand
         {
             CardHolderName = "Jane Doe",
-            CardNumber = "1111-2222-3333-4444",
-            ExpiryMonth = "06",
-            ExpiryYear = "2028",
+            CardNumber = "4539-6829-9582-4395",
+            ExpiryMonth = 6,
+            ExpiryYear = 2028,
             Cvv = "456"
         };
         

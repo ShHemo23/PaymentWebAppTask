@@ -11,8 +11,28 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Azure.Identity;
 using Microsoft.EntityFrameworkCore;
+using PaymentGateway.Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Versioning;
+using Polly;
+using Polly.Extensions.Http;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add configuration providers.
+if (builder.Environment.IsProduction())
+{
+    var keyVaultUrl = builder.Configuration["KeyVaultUrl"];
+    if (!string.IsNullOrEmpty(keyVaultUrl) && Uri.TryCreate(keyVaultUrl, UriKind.Absolute, out var keyVaultUri))
+    {
+        builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
+    }
+}
+else
+{
+    // For local development, use .NET User Secrets.
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
 
 // 1. Logging
 builder.Host.UseSerilog((context, config) => config.ReadFrom.Configuration(context.Configuration));
@@ -29,8 +49,28 @@ builder.Host.UseDefaultServiceProvider(options =>
 });
 
 // 4. API Controllers
-builder.Services.AddControllers(options => options.SuppressAsyncSuffixInActionNames = false);
+builder.Services.AddScoped<IdempotencyMiddleware>();
+builder.Services.AddControllers(options =>
+{
+    options.SuppressAsyncSuffixInActionNames = false;
+    options.Filters.Add<IdempotencyMiddleware>();
+});
 builder.Services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
+
+// API Versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+});
+
+builder.Services.AddVersionedApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
 
 // Add Swagger/OpenAPI Services
 builder.Services.AddEndpointsApiExplorer();
@@ -78,7 +118,8 @@ builder.Services.AddHealthChecks()
         connectionString: builder.Configuration.GetConnectionString("DefaultConnection")!,
         name: "SQL Server",
         failureStatus: HealthStatus.Unhealthy,
-        tags: new[] { "database", "ready" });
+        tags: new[] { "database", "ready" })
+    .AddCheck<PaymentGateway.Api.Services.PaymentProviderHealthCheck>("Payment Provider", tags: new[] { "external", "ready" });
 
 // 7. CORS
 builder.Services.AddCors(options =>
@@ -91,42 +132,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 8. Secrets Management - Explicitly adding User Secrets for clarity and robustness.
-if (builder.Environment.IsDevelopment())
-{
-    builder.Configuration.AddUserSecrets<Program>(optional: true);
-}
-else
-{
-    var keyVaultUri = new Uri(builder.Configuration["KeyVault:Uri"] 
-                              ?? throw new InvalidOperationException("KeyVault URI not found."));
-    builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
-}
+// 8. Secrets Management - This section is now handled at the top of the file.
 
 // Rate Limiting
 builder.Services.AddMemoryCache();
-
-var rateLimitRules = new List<RateLimitRule>
-{
-    new()
-    {
-        Endpoint = "*:/api/*",
-        Period = "10s",
-        Limit = 5
-    }
-};
-
-builder.Services.Configure<IpRateLimitOptions>(options =>
-{
-    options.GeneralRules = rateLimitRules;
-    options.EnableEndpointRateLimiting = true;
-    options.StackBlockedRequests = false;
-    options.HttpStatusCode = 429;
-    options.RealIpHeader = "X-Real-IP";
-    options.ClientIdHeader = "X-ClientId";
-});
-
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Infrastructure.IActionContextAccessor, Microsoft.AspNetCore.Mvc.Infrastructure.ActionContextAccessor>();
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
 builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
@@ -154,6 +166,20 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Resilient HTTP client for external payment provider (retry + circuit breaker)
+builder.Services.AddHttpClient("PaymentProvider", client =>
+{
+    var baseUrl = builder.Configuration["PaymentProvider:BaseUrl"];
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        client.BaseAddress = new Uri(baseUrl);
+})
+    .AddPolicyHandler(HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))))
+    .AddPolicyHandler(HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -161,6 +187,7 @@ app.UseExceptionHandler();
 
 app.UseSerilogRequestLogging();
 app.UseIpRateLimiting();
+app.UseMiddleware<PaymentGateway.Api.Middleware.SerilogEnrichmentMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -173,8 +200,22 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = string.Empty; // Set UI at the app's root
     });
 }
+else
+{
+    // Enforce HSTS in production or staging environments
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
+
+// Minimal security-headers middleware
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'self';";
+    await next();
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -200,6 +241,9 @@ app.MapHealthChecks("/ready", new HealthCheckOptions
     Predicate = _ => true,
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
 });
+
+// Expose /metrics for Prometheus
+app.UseMetricServer();
 
 app.Run();
 

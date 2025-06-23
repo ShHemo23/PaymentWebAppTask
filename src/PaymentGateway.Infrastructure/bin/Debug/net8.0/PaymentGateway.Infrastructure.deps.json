@@ -914,7 +914,8 @@
           "FluentValidation.AspNetCore": "11.3.0",
           "MediatR": "12.3.0",
           "Microsoft.EntityFrameworkCore": "8.0.6",
-          "PaymentGateway.Domain": "1.0.0"
+          "PaymentGateway.Domain": "1.0.0",
+          "System.IdentityModel.Tokens.Jwt": "6.35.0"
         },
         "runtime": {
           "PaymentGateway.Application.dll": {

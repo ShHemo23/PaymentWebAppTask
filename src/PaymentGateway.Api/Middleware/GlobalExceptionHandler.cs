@@ -16,7 +16,10 @@ internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log
     {
         _logger.LogError(exception, "An unexpected error occurred: {Message}", exception.Message);
 
-        var problemDetails = new ProblemDetails
+        var problemDetails = CreateProblemDetails(httpContext, exception);
+
+        // If our helper didn't map the exception we fall back to 500.
+        problemDetails ??= new ProblemDetails
         {
             Status = StatusCodes.Status500InternalServerError,
             Title = "An internal server error occurred.",
@@ -25,7 +28,7 @@ internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log
         };
         
         httpContext.Response.ContentType = "application/problem+json";
-        httpContext.Response.StatusCode = problemDetails.Status.Value;
+        httpContext.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
 
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
@@ -46,6 +49,20 @@ internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log
             {
                 Title = "One or more validation errors occurred.",
                 Status = StatusCodes.Status400BadRequest,
+                Instance = httpContext.Request.Path
+            },
+            InvalidOperationException ioe => new ProblemDetails
+            {
+                Title = "A request validation error occurred.",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = ioe.Message,
+                Instance = httpContext.Request.Path
+            },
+            KeyNotFoundException knf => new ProblemDetails
+            {
+                Title = "The requested resource was not found.",
+                Status = StatusCodes.Status404NotFound,
+                Detail = knf.Message,
                 Instance = httpContext.Request.Path
             },
             _ => new ProblemDetails
