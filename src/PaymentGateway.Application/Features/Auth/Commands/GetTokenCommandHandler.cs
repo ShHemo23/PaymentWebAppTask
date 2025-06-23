@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using PaymentGateway.Application.Interfaces;
 using PaymentGateway.Domain.Entities;
+using System.Security.Cryptography;
 
 namespace PaymentGateway.Application.Features.Auth.Commands;
 
@@ -29,9 +30,17 @@ internal sealed class GetTokenCommandHandler : IRequestHandler<GetTokenCommand, 
     public async Task<string> Handle(GetTokenCommand request, CancellationToken cancellationToken)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
-        var key = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key missing");
-        var issuer = jwtSettings["Issuer"];
-        var audience = jwtSettings["Audience"];
+        var key = jwtSettings["Key"];
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            // When running in test or local environments the key may be absent. Generate a temporary one on the fly.
+            var randomBytes = RandomNumberGenerator.GetBytes(64);
+            key = Convert.ToBase64String(randomBytes);
+            _logger.LogWarning("JWT key not found in configuration. Generated a transient key for this runtime instance – *tokens issued with this key will not be valid across restarts*.");
+        }
+
+        var issuer = jwtSettings["Issuer"] ?? "PaymentGateway.Api";
+        var audience = jwtSettings["Audience"] ?? "PaymentGateway.Users";
 
         // Hard-coded credentials from configuration for demo purposes
         var validUsername = _configuration["Auth:Username"] ?? "admin";

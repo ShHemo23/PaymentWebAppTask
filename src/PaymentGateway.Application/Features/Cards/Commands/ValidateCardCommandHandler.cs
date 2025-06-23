@@ -34,6 +34,18 @@ public class ValidateCardCommandHandler : IRequestHandler<ValidateCardCommand, V
                 return Task.FromResult(new ValidateCardResponse(false, "Invalid card number"));
             }
 
+            // Additional basic issuer prefix check – restrict to typical production card ranges (Visa/Mastercard/Discover/Amex)
+            bool issuerKnown = digitsOnly.StartsWith("4")      // Visa
+                               || digitsOnly.StartsWith("5")   // MasterCard (5* ranges)
+                               || digitsOnly.StartsWith("6")   // Discover / Maestro newer ranges
+                               || digitsOnly.StartsWith("34")  // American Express
+                               || digitsOnly.StartsWith("37"); // American Express
+            if (!issuerKnown)
+            {
+                _logger.LogWarning("Card validation failed: Unknown issuer prefix. CardNumber: {CardNumber}", maskedCard);
+                return Task.FromResult(new ValidateCardResponse(false, "Unsupported card issuer"));
+            }
+
             // 2. Expiry date must be in the future (end of month)
             var month = request.ExpiryMonth;
             var year = request.ExpiryYear;
