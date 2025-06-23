@@ -58,7 +58,7 @@ internal sealed class RefundPaymentCommandHandler : IRequestHandler<RefundPaymen
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
         {

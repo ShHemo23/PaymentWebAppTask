@@ -86,14 +86,14 @@ public class PaymentGatewayApiFactory : WebApplicationFactory<Program>, IAsyncLi
         {
             var hash = ComputeSha256Hash(number);
             if (!dbContext.Cards.Any(c => c.CardNumber == hash))
-            {
-                dbContext.Cards.Add(new(
+        {
+            dbContext.Cards.Add(new(
                     holder,
                     hash,
-                    "12",
-                    "2030",
-                    "123",
-                    1000m));
+                "12",
+                "2030",
+                "123",
+                1000m));
             }
         }
 
