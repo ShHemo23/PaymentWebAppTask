@@ -1,72 +1,95 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using PaymentGateway.Application.Interfaces;
 
 namespace PaymentGateway.Application.Features.Cards.Commands;
 
 public class ValidateCardCommandHandler : IRequestHandler<ValidateCardCommand, ValidateCardResponse>
 {
-    private readonly ICardRepository _cardRepository;
     private readonly ILogger<ValidateCardCommandHandler> _logger;
 
     public ValidateCardCommandHandler(
-        ICardRepository cardRepository,
         ILogger<ValidateCardCommandHandler> logger)
     {
-        ArgumentNullException.ThrowIfNull(cardRepository);
         ArgumentNullException.ThrowIfNull(logger);
-        _cardRepository = cardRepository;
         _logger = logger;
     }
 
-    public async Task<ValidateCardResponse> Handle(ValidateCardCommand request, CancellationToken cancellationToken)
+    public Task<ValidateCardResponse> Handle(ValidateCardCommand request, CancellationToken cancellationToken)
     {
+        var maskedCard = MaskCardNumber(request.CardNumber);
+
         try
         {
-            var existingCard = await _cardRepository.GetByCardNumberAsync(request.CardNumber.Trim(), cancellationToken);
+            // 1. Luhn check
+            var digitsOnly = string.Concat(request.CardNumber.Where(char.IsDigit));
+            if (digitsOnly.Length is < 13 or > 19)
+            {
+                return Task.FromResult(new ValidateCardResponse(false, "Card number length invalid"));
+            }
+
+            bool luhnValid = IsValidLuhn(digitsOnly);
+            if (!luhnValid)
+            {
+                _logger.LogWarning("Card validation failed: Luhn check failed. CardNumber: {CardNumber}", maskedCard);
+                return Task.FromResult(new ValidateCardResponse(false, "Invalid card number"));
+            }
+
+            // 2. Expiry date must be in the future (end of month)
+            var month = request.ExpiryMonth;
+            var year = request.ExpiryYear;
+            var expiryDate = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+            if (expiryDate < DateTime.UtcNow)
+            {
+                _logger.LogWarning("Card validation failed: Expired card. CardNumber: {CardNumber}", maskedCard);
+                return Task.FromResult(new ValidateCardResponse(false, "Card has expired"));
+            }
+
+            // 3. CVV 3-4 digits already validated via FluentValidation, but we double-check length.
+            if (request.Cvv.Length is < 3 or > 4)
+            {
+                _logger.LogWarning("Card validation failed: Invalid CVV length. CardNumber: {CardNumber}", maskedCard);
+                return Task.FromResult(new ValidateCardResponse(false, "Invalid CVV"));
+            }
             
-            if (existingCard == null)
-            {
-                _logger.LogInformation("Card validation failed: Card not found. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(false, "Card not found");
-            }
-
-            bool isExpiryValid = existingCard.ExpiryMonth == request.ExpiryMonth.Trim() && existingCard.ExpiryYear == request.ExpiryYear.Trim();
-            bool isCvvValid = existingCard.Cvv == request.Cvv.Trim();
-            bool isNameValid = existingCard.CardHolderName == request.CardHolderName.Trim();
-
-            if (!isExpiryValid)
-            {
-                _logger.LogWarning("Card validation failed: Invalid expiry date. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(false, "Invalid expiry date");
-            }
-
-            if (!isCvvValid)
-            {
-                _logger.LogWarning("Card validation failed: Invalid CVV. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(false, "Invalid CVV");
-            }
-            
-            if (!isNameValid)
-            {
-                _logger.LogWarning("Card validation failed: Invalid cardholder name. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(false, "Invalid cardholder name");
-            }
-            
-            bool isValid = isExpiryValid && isCvvValid && isNameValid;
-
-            if (isValid)
-            {
-                _logger.LogInformation("Card validation successful. CardNumber: {CardNumber}", request.CardNumber);
-                return new ValidateCardResponse(true);
-            }
-
-            return new ValidateCardResponse(false, "Unknown validation error");
+            // All checks passed.
+            _logger.LogInformation("Card validation successful. CardNumber: {CardNumber}", maskedCard);
+            return Task.FromResult(new ValidateCardResponse(true));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating card. CardNumber: {CardNumber}", request.CardNumber);
+            _logger.LogError(ex, "Error validating card. CardNumber: {CardNumber}", maskedCard);
             throw;
         }
+    }
+
+    private static bool IsValidLuhn(string cardNumber)
+    {
+        int sum = 0;
+        bool alternate = false;
+        for (int i = cardNumber.Length - 1; i >= 0; i--)
+        {
+            if (!char.IsDigit(cardNumber[i])) return false;
+            int n = cardNumber[i] - '0';
+            if (alternate)
+            {
+                n *= 2;
+                if (n > 9) n -= 9;
+            }
+            sum += n;
+            alternate = !alternate;
+        }
+        return sum % 10 == 0;
+    }
+
+    private static string MaskCardNumber(string cardNumber)
+    {
+        var digits = string.Concat(cardNumber.Where(char.IsDigit));
+        if (digits.Length <= 4)
+        {
+            return new string('*', digits.Length);
+        }
+
+        var last4 = digits[^4..];
+        return new string('*', digits.Length - 4) + last4;
     }
 } 

@@ -15,7 +15,7 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
             .IsRequired();
 
         builder.Property(c => c.CardNumber)
-            .HasMaxLength(19) // e.g., "xxxx-xxxx-xxxx-xxxx"
+            .HasMaxLength(64)
             .IsRequired();
 
         builder.Property(c => c.ExpiryMonth)
@@ -32,10 +32,16 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
 
         builder.Property(c => c.Balance)
             .HasColumnType("decimal(18,2)");
+        
+        builder.Property(c => c.AvailableBalance)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(c => c.RowVersion)
+            .IsRowVersion();
 
         // Seed a test card using constructor
         var testCard = new Card(
-            cardHolderName: "John Smith",
+            "Test Card Holder",
             cardNumber: "4242-4242-4242-4242",
             expiryMonth: "12",
             expiryYear: "2025",

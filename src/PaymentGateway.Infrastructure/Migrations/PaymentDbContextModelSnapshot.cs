@@ -22,11 +22,51 @@ namespace PaymentGateway.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("PaymentGateway.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("PaymentGateway.Domain.Entities.Card", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AvailableBalance")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Balance")
                         .HasColumnType("decimal(18,2)");
@@ -38,8 +78,8 @@ namespace PaymentGateway.Infrastructure.Migrations
 
                     b.Property<string>("CardNumber")
                         .IsRequired()
-                        .HasMaxLength(19)
-                        .HasColumnType("nvarchar(19)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("Cvv")
                         .IsRequired()
@@ -56,6 +96,12 @@ namespace PaymentGateway.Infrastructure.Migrations
                         .HasMaxLength(4)
                         .HasColumnType("nvarchar(4)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("Id");
 
                     b.ToTable("Cards");
@@ -63,13 +109,14 @@ namespace PaymentGateway.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("f9a4a7a0-02a8-4e3a-8671-5f2a1d7f6b8a"),
+                            Id = new Guid("513969d5-b7a2-4c06-b5f1-7c81d082fd29"),
+                            AvailableBalance = 0m,
                             Balance = 1000.00m,
-                            CardHolderName = "John Smith",
+                            CardHolderName = "Test Card Holder",
                             CardNumber = "4242-4242-4242-4242",
                             Cvv = "123",
                             ExpiryMonth = "12",
-                            ExpiryYear = "2030"
+                            ExpiryYear = "2025"
                         });
                 });
 
@@ -96,6 +143,18 @@ namespace PaymentGateway.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("LastModifiedDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("PublicTransactionId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("RefundCode")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<DateTimeOffset?>("RefundCodeExpiryUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -110,12 +169,17 @@ namespace PaymentGateway.Infrastructure.Migrations
             modelBuilder.Entity("PaymentGateway.Domain.Entities.Transaction", b =>
                 {
                     b.HasOne("PaymentGateway.Domain.Entities.Card", "Card")
-                        .WithMany()
+                        .WithMany("Transactions")
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("PaymentGateway.Domain.Entities.Card", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

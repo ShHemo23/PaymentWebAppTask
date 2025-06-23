@@ -180,5 +180,3 @@ jobs:
 ```
 
 *No Docker is required* in CI because Testcontainers uses the GitHub Actions host Docker daemon automatically.
-
----

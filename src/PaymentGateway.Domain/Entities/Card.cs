@@ -11,6 +11,7 @@ public sealed class Card
         ExpiryMonth = string.Empty;
         ExpiryYear = string.Empty;
         Cvv = string.Empty;
+        RowVersion = [];
     }
 
     public Card(string cardHolderName, string cardNumber, string expiryMonth, string expiryYear, string cvv, decimal initialBalance = 0)
@@ -29,6 +30,8 @@ public sealed class Card
         ExpiryYear = expiryYear;
         Cvv = cvv;
         Balance = initialBalance;
+        AvailableBalance = initialBalance;
+        RowVersion = [];
     }
 
     public Guid Id { get; private set; }
@@ -38,6 +41,10 @@ public sealed class Card
     public string ExpiryYear { get; private set; }
     public string Cvv { get; private set; }
     public decimal Balance { get; private set; }
+    public decimal AvailableBalance { get; set; }
+    public byte[] RowVersion { get; set; }
+
+    public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
 
     public void Debit(decimal amount)
     {
@@ -49,11 +56,13 @@ public sealed class Card
         }
 
         Balance -= amount;
+        AvailableBalance -= amount;
     }
 
     public void Credit(decimal amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
         Balance += amount;
+        AvailableBalance += amount;
     }
 }
