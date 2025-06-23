@@ -68,6 +68,7 @@ bld/
 *.db
 *.sqlite
 *.sqlite3
+*.cache
 TestResult/
 coverage/
 
@@ -96,4 +97,4 @@ yarn-error.log
 package-lock.json
 
 # VS Code
-.vscode/ 
+.vscode/

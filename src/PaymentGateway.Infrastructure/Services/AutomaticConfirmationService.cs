@@ -37,8 +37,8 @@ public sealed class AutomaticConfirmationService : BackgroundService
                 _logger.LogError(ex, "Error while processing automatic confirmations.");
             }
 
-            // Run every 5 minutes
-            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            // Run every hour
+            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
         }
 
         _logger.LogInformation("Automatic Confirmation Service has stopped.");
@@ -49,17 +49,23 @@ public sealed class AutomaticConfirmationService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
 
-        var cutoff = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var today = DateTime.UtcNow.Date;
 
-        // 1. Settle authorized transactions older than cutoff
+        // 1. Settle authorized transactions from previous days
         var pendingTxns = await context.Transactions
-            .Where(t => t.Status == TransactionStatus.Authorized && t.CreatedDate <= cutoff)
+            .Where(t => t.Status == TransactionStatus.Authorized && t.CreatedDate.Date < today)
             .ToListAsync(cancellationToken);
 
+        var confirmedCount = 0;
         foreach (var txn in pendingTxns)
         {
             txn.MarkAsSuccessful();
-            _logger.LogInformation("Automatically settled Txn {TxnId}", txn.PublicTransactionId);
+            confirmedCount++;
+        }
+
+        if (confirmedCount > 0)
+        {
+            _logger.LogInformation("Automatically confirmed {Count} transactions from previous days", confirmedCount);
         }
 
         // 2. Expire outdated refund codes (do not alter status)
@@ -67,10 +73,16 @@ public sealed class AutomaticConfirmationService : BackgroundService
             .Where(t => t.RefundCodeExpiryUtc.HasValue && t.RefundCodeExpiryUtc < DateTimeOffset.UtcNow)
             .ToListAsync(cancellationToken);
 
+        var expiredCount = 0;
         foreach (var txn in expiredRefunds)
         {
             txn.ExpireRefund();
-            _logger.LogInformation("Expired refund code for Txn {TxnId}", txn.PublicTransactionId);
+            expiredCount++;
+        }
+
+        if (expiredCount > 0)
+        {
+            _logger.LogInformation("Expired {Count} refund codes", expiredCount);
         }
 
         await context.SaveChangesAsync(cancellationToken);

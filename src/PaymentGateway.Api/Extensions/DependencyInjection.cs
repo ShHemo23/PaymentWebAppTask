@@ -52,7 +52,7 @@ public static class DependencyInjection
 
         services.AddCrypto();
 
-        services.AddSingleton<IHostedService, PaymentGateway.Infrastructure.Services.AutomaticConfirmationService>();
+        services.AddHostedService<AutomaticConfirmationService>();
 
         return services;
     }
